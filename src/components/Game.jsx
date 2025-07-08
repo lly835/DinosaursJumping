@@ -4,11 +4,6 @@ import * as tf from '@tensorflow/tfjs';
 
 // 配置TensorFlow.js
 tf.setBackend('webgl');
-tf.env().set('WEBGL_CPU_FORWARD', false);
-tf.env().set('WEBGL_PACK', true);
-tf.env().set('WEBGL_FORCE_F16_TEXTURES', true);
-tf.env().set('WEBGL_RENDER_FLOAT32_CAPABLE', true);
-tf.env().set('WEBGL_FLUSH_THRESHOLD', 1);
 
 import DinoCharacter from './DinoCharacter';
 
@@ -25,13 +20,10 @@ const Game = ({ onJumpDetected, jumpCount }) => {
   const detectorRef = useRef(null);
   const jumpCooldown = useRef(false);
   const jumpTimer = useRef(null);
-  const lastPoseRef = useRef(null);
-  const movementScoreRef = useRef(0);
   const frameCountRef = useRef(0);
   const processingFrameRef = useRef(false);
-  const detectionHistoryRef = useRef([]);  // 存储最近的检测结果
-  const stableCountRef = useRef(0);        // 稳定检测计数
-  const lastMovementTimeRef = useRef(0);   // 上次检测到动作的时间
+  const detectionHistoryRef = useRef([]);
+  const lastMovementTimeRef = useRef(0);
 
   // 初始化TensorFlow和摄像头
   useEffect(() => {
@@ -40,12 +32,12 @@ const Game = ({ onJumpDetected, jumpCount }) => {
         // 加载TensorFlow模型
         await tf.ready();
         
-        // 创建姿态检测器 - 使用MoveNet模型，对小孩检测更友好
+        // 创建姿态检测器
         const model = poseDetection.SupportedModels.MoveNet;
         const detectorConfig = {
           modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
           enableSmoothing: true,
-          minPoseScore: 0.1  // 降低最低姿势分数阈值，提高检测灵敏度
+          minPoseScore: 0.1
         };
         
         detectorRef.current = await poseDetection.createDetector(model, detectorConfig);
@@ -56,7 +48,7 @@ const Game = ({ onJumpDetected, jumpCount }) => {
             width: 320,
             height: 240,
             facingMode: 'user',
-            frameRate: { ideal: 15, max: 20 }
+            frameRate: { ideal: 15 }
           }
         };
         
@@ -86,44 +78,30 @@ const Game = ({ onJumpDetected, jumpCount }) => {
     };
   }, []);
 
-  // 简化的检测质量评估 - 对小孩更友好
+  // 检测质量评估
   const evaluateDetectionQuality = (pose) => {
     if (!pose || !pose.keypoints) return 0;
     
-    // 只关注几个关键点：鼻子、眼睛和肩膀
     const importantPoints = ['nose', 'left_eye', 'right_eye', 'left_shoulder', 'right_shoulder'];
-    let visiblePoints = 0;
-    
-    importantPoints.forEach(pointName => {
+    const visiblePoints = importantPoints.filter(pointName => {
       const point = pose.keypoints.find(kp => kp.name === pointName);
-      if (point && point.score > 0.1) {  // 降低阈值
-        visiblePoints++;
-      }
-    });
+      return point && point.score > 0.1;
+    }).length;
     
-    // 只要能看到2个以上关键点就算可以
     return visiblePoints >= 2 ? 0.5 : 0;
   };
 
-  // 检测任何明显的动作 - 不限于垂直跳跃
+  // 检测动作
   const detectAnyMovement = (currentPose, previousPoses) => {
-    if (!currentPose || previousPoses.length < 2) return false;
+    if (!currentPose || previousPoses.length < 1) return false;
     
-    // 获取任何可见的关键点
-    const getVisibleKeypoints = (pose) => {
-      return pose.keypoints.filter(kp => kp.score > 0.1);
-    };
+    const getVisibleKeypoints = (pose) => pose.keypoints.filter(kp => kp.score > 0.1);
     
     const currentKeypoints = getVisibleKeypoints(currentPose);
-    if (currentKeypoints.length === 0) return false;
+    const previousKeypoints = getVisibleKeypoints(previousPoses[previousPoses.length - 1]);
     
-    // 计算与前一帧的平均移动距离
-    const previousPose = previousPoses[previousPoses.length - 1];
-    const previousKeypoints = getVisibleKeypoints(previousPose);
+    if (currentKeypoints.length === 0 || previousKeypoints.length === 0) return false;
     
-    if (previousKeypoints.length === 0) return false;
-    
-    // 计算任何可见点的移动
     let totalMovement = 0;
     let pointsCompared = 0;
     
@@ -132,34 +110,24 @@ const Game = ({ onJumpDetected, jumpCount }) => {
       if (prevKp) {
         const dx = currentKp.x - prevKp.x;
         const dy = currentKp.y - prevKp.y;
-        const distance = Math.sqrt(dx*dx + dy*dy);
-        
-        totalMovement += distance;
+        totalMovement += Math.sqrt(dx*dx + dy*dy);
         pointsCompared++;
       }
     });
     
-    if (pointsCompared === 0) return false;
-    
-    // 如果平均移动超过阈值，认为有动作
-    const avgMovement = totalMovement / pointsCompared;
-    return avgMovement > 8;  // 降低阈值，更容易触发
+    return pointsCompared > 0 && (totalMovement / pointsCompared) > 8;
   };
 
   // 姿态检测循环
   useEffect(() => {
     let animationFrameId;
     
-    // 创建一个简单的内存管理器，定期清理不需要的数据
+    // 内存管理
     const memoryCleanupInterval = setInterval(() => {
-      // 清理TensorFlow内存
       if (tf.memory().numTensors > 50) {
         tf.disposeVariables();
-        tf.engine().endScope();
-        tf.engine().startScope();
-        console.log('已清理TensorFlow内存');
       }
-    }, 10000); // 每10秒检查一次
+    }, 10000);
     
     const detectPose = async () => {
       if (detectorRef.current && videoRef.current && cameraReady && videoRef.current.readyState === 4) {
@@ -192,45 +160,37 @@ const Game = ({ onJumpDetected, jumpCount }) => {
             
             // 更新检测历史
             detectionHistoryRef.current.push(pose);
-            if (detectionHistoryRef.current.length > 5) {  // 减少历史帧数
+            if (detectionHistoryRef.current.length > 3) {
               detectionHistoryRef.current.shift();
             }
             
             // 根据检测质量更新状态提示
             if (quality > 0) {
               setDetectionQuality('检测正常');
-              stableCountRef.current++;
               
-              // 检测任何动作
+              // 检测动作
               if (!jumpCooldown.current && detectionHistoryRef.current.length >= 2) {
                 const hasMovement = detectAnyMovement(pose, detectionHistoryRef.current.slice(0, -1));
                 
-                // 如果检测到动作，且距离上次动作超过300ms
                 const now = Date.now();
                 if (hasMovement && (now - lastMovementTimeRef.current > 300)) {
                   lastMovementTimeRef.current = now;
                   
-                  // 触发跳跃
                   setIsJumping(true);
                   onJumpDetected();
                   
-                  // 设置跳跃冷却期
                   jumpCooldown.current = true;
                   
-                  // 0.5秒后重置跳跃状态，缩短动画时间以便连续跳跃
                   jumpTimer.current = setTimeout(() => {
                     setIsJumping(false);
-                    
-                    // 跳跃冷却期
                     setTimeout(() => {
                       jumpCooldown.current = false;
-                    }, 300);  // 进一步缩短冷却时间，更容易连续跳跃
+                    }, 300);
                   }, 500);
                 }
               }
             } else {
               setDetectionQuality('检测不佳，请确保面对摄像头');
-              stableCountRef.current = 0;
             }
             
             // 可选：在画布上绘制骨架
@@ -338,20 +298,20 @@ const Game = ({ onJumpDetected, jumpCount }) => {
             >
               {showCamera ? '隐藏摄像头' : '显示摄像头'}
             </button>
-          </div>
-          <div className={`camera-container ${showCamera ? '' : 'hidden'}`}>
-            <video 
-              ref={videoRef}
-              className="camera-preview"
-              playsInline
-              muted
-            />
-            <canvas 
-              ref={canvasRef}
-              className="pose-canvas"
-              width="320"
-              height="240"
-            />
+            <div className={`camera-container ${showCamera ? '' : 'hidden'}`}>
+              <video 
+                ref={videoRef}
+                className="camera-preview"
+                playsInline
+                muted
+              />
+              <canvas 
+                ref={canvasRef}
+                className="pose-canvas"
+                width="320"
+                height="240"
+              />
+            </div>
           </div>
         </>
       )}

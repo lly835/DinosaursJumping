@@ -26,10 +26,8 @@ const DinoCharacter = ({ isJumping }) => {
       console.error('音效加载失败:', error);
     }
     
-    // 添加用户交互事件监听器，以解锁音频播放
     const unlockAudio = () => {
       if (!audioUnlockedRef.current) {
-        // 尝试播放并立即暂停，解锁音频
         Promise.all([
           coinSoundRef.current.play().then(() => coinSoundRef.current.pause()),
           jumpSoundRef.current.play().then(() => jumpSoundRef.current.pause())
@@ -37,7 +35,6 @@ const DinoCharacter = ({ isJumping }) => {
           coinSoundRef.current.currentTime = 0;
           jumpSoundRef.current.currentTime = 0;
           audioUnlockedRef.current = true;
-          console.log('音频已解锁');
           document.removeEventListener('click', unlockAudio);
           document.removeEventListener('touchstart', unlockAudio);
         }).catch(err => console.log('音效播放失败，请再次点击页面:', err));
@@ -71,14 +68,12 @@ const DinoCharacter = ({ isJumping }) => {
       }
       
       // 添加金币效果
-      const rect = dinoRef.current.getBoundingClientRect();
       setEffectPosition({
-        x: Math.random() * 40 - 20, // 随机偏移，使效果更生动
+        x: Math.random() * 40 - 20,
         y: -30
       });
       setShowEffect(true);
       
-      // 效果消失
       const effectTimer = setTimeout(() => {
         setShowEffect(false);
       }, 600);
@@ -87,15 +82,14 @@ const DinoCharacter = ({ isJumping }) => {
     }
   }, [isJumping]);
 
-  // 创建多个恐龙影子，增强跳跃效果
   const renderShadows = () => {
     if (!isJumping) return null;
     
     return (
       <>
-        <div className="dino-shadow" style={{ opacity: 0.1, transform: 'translateY(-10px) scale(0.95)' }}></div>
-        <div className="dino-shadow" style={{ opacity: 0.2, transform: 'translateY(-20px) scale(0.9)' }}></div>
-        <div className="dino-shadow" style={{ opacity: 0.3, transform: 'translateY(-30px) scale(0.85)' }}></div>
+        <div className="dino-shadow" style={{ opacity: 0.2, transform: 'translateY(-10px) scale(0.95)' }}></div>
+        <div className="dino-shadow" style={{ opacity: 0.3, transform: 'translateY(-20px) scale(0.9)' }}></div>
+        <div className="dino-shadow" style={{ opacity: 0.4, transform: 'translateY(-30px) scale(0.85)' }}></div>
       </>
     );
   };
