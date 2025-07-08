@@ -32,6 +32,10 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;
+  /* 明确移除边框 */
+  border: none;
+  outline: none;
+  box-shadow: none;
 }
 
 /* 恐龙身体 */
@@ -45,6 +49,10 @@
   position: relative;
   z-index: 3;
   transform-origin: bottom center;
+  /* 明确移除边框 */
+  border: none;
+  outline: none;
+  box-shadow: none;
 }
 
 /* 恐龙影子效果 */
@@ -111,10 +119,10 @@
     transform: translateX(-50%) translateY(0);
   }
   40% {
-    transform: translateX(-50%) translateY(-150px) scaleY(1.1);
+    transform: translateX(-50%) translateY(-180px) scaleY(1.1);
   }
   70% {
-    transform: translateX(-50%) translateY(-120px) scaleY(1);
+    transform: translateX(-50%) translateY(-144px) scaleY(1);
   }
   100% {
     transform: translateX(-50%) translateY(0);
