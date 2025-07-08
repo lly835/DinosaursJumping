@@ -4,7 +4,7 @@
 
 ## 🎮 在线体验
 
-**[立即开始游戏](https://konglongtiaosheng-lrs4eqwzn-shuiges-projects-32e68798.vercel.app)**
+**[立即开始游戏](https://dinosaurs-jumping.vercel.app/)**
 
 > 注意：游戏需要摄像头权限，请在浏览器中允许访问摄像头
 
@@ -77,7 +77,7 @@ npm run build
 
 项目已配置自动部署到Vercel：
 - 推送代码到GitHub main分支会自动触发部署
-- 部署地址：https://konglongtiaosheng-lrs4eqwzn-shuiges-projects-32e68798.vercel.app
+- 部署地址：https://dinosaurs-jumping.vercel.app/
 
 ## 📝 许可
 
